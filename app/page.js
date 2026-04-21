@@ -1,3 +1,5 @@
+"use client"
+
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { getRole } from "@/utils/auth";
