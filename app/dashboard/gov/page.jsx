@@ -1,10 +1,13 @@
 "use client";
-
+import { useState, useEffect } from "react";
+import { getSocket } from "@/utils/socket";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchKPIs,fetchLicenses, revokeLicense, prolongLicense, fetchActivities } from "@/services/api";
 import { Card } from "@/components/Card";
 
 export default function GovDashboard(){
+    const [liveLogs, setLiveLogs] = useState([]);
+    
     const queryClient = useQueryClient();
 
     const {data: kpis} = useQuery({
@@ -36,6 +39,25 @@ export default function GovDashboard(){
             queryClient.invalidateQueries(["licenses"])
         },
     });
+
+    useEffect(()=>{
+        const socket = getSocket();
+        socket.on("connect", ()=>{
+            console.log("Connected to socket");
+        });
+        socket.on("license_update", data=>{
+            setLiveLogs(prev=>[data, ...prev]);
+        });
+        socket.on("disconnect", ()=>{
+            console.log("Disconnected");
+        });
+
+        return () => {
+            socket.off("license_update");
+        }
+    },[])
+
+     const combinedLogs = [...liveLogs, ...(activities || [])];
 
     return(
         <div className="p-6 space-y-6">
@@ -86,14 +108,18 @@ export default function GovDashboard(){
                 </table>
             </div>
             <div>
-                <h2 className="text-xl font-semibold mb-2">Recent Activity</h2>
-                <ul className="space-y-2">
-                    {
-                        activities?.map((act,i)=>(
-                            <li key={i} className="border p-2">{act.message}</li>
-                        ))
-                    }
-                </ul>
+                <h2 className="text-xl font-semibold mb-2">Live Activity Feed</h2>
+
+                <div className="h-64 overflow-y-auto border p-2 space-y-2">
+                    {combinedLogs.map((log, i) => (
+                    <div key={i} className="bg-gray-100 p-2 rounded">
+                        <p>{log.message}</p>
+                        <span className="text-xs text-gray-500">
+                        {new Date(log.timestamp).toLocaleString()}
+                        </span>
+                    </div>
+                    ))}
+                </div>
             </div>
         </div>
     )
